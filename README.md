@@ -1,2 +1,26 @@
-# adaptive-download-benchmark
-Adaptive download performance benchmark for Windows 11
+# 自适应下载性能分析工具 (Adaptive Download Benchmark)
+
+Windows 11 中文桌面工具 · v0.1.0 初始实现
+
+输入直接 HTTP/HTTPS 文件链接 → Range 与强 ETag 探测 → 控制变量抽样 → 推荐下载方案 → 用户确认正式下载 → 长度和 SHA-256 校验。
+
+## 运行
+安装 Python 3.10 或更高版本（包含 Tkinter；Windows 官方安装器默认包含）。无需 pip 依赖。Windows 自带 curl.exe 可参与对比；不需要 aria2。
+下载仓库 ZIP，解压后双击 start.cmd，或在目录内执行 `python app.py`。若尚未安装 Python，可用 `winget install --id Python.Python.3.13 -e`，然后重新打开终端。
+
+## 第一版范围
+- 原生 HTTP/HTTPS 单连接与 2/4/8/16 连接；依据样本大小过滤过小分片，curl HTTP/1.1 与可用 HTTP/2 单连接。
+- 真正发出 Range 探测而非仅信任 Accept-Ranges；没有强 ETag 或 Range 时跳过比较，不虚构结果。
+- 每组 2/3 次；同轮使用同字节范围，轮换测试顺序，计算中位速度（含连接、写入和样本校验成本）。
+- 样本 SHA-256 一致性校验；任一失败或限流停止，不重试或绕过；提前结束不推荐。
+- 最快中位数的 95% 内优先较低连接数。正式下载前再确认，不覆盖现有文件，失败清理临时文件。完成后核对长度并输出 SHA-256，用户提供可信哈希时才能验证与发布者原文件一致。
+- 本地 HTML/CSV/JSON 报告，保存在 Downloads/AdaptiveDownloadBenchmark；报告不写入链接路径、查询参数或 ETag。
+- 全文件下载需要已知长度。多连接下载临时磁盘占用可能约为文件大小的两倍，目标文件系统需支持硬链接（通常为 NTFS）。第一版不支持断点续传。
+- 测试默认每次 4 MiB，2 轮，最多 16 连接；确认后执行。流量估计仅指有效载荷，额外请求、错误响应及协议开销不计入。
+- 不支持网页解析、登录、Cookie、自定义认证、限流规避；仅测试获准下载的资源。短时样本不能保证整个下载最优。curl HTTP/2 为请求协商模式，不保证服务器实际使用 HTTP/2。
+- 当前尚未实现 aria2 引擎、自动分片大小寻优、PowerShell 引擎、EXE 打包或实时下载进度。后续独立验收。
+- 不在服务器端运行，不上传用户链接；请勿在公开 issue 中提交带签名的链接。
+
+## 测试
+`python -m unittest -v` 使用本地 HTTP 测试服务器，不消耗外网流量。覆盖 Range、完整性、限流、资源变化、拒绝覆盖、报告脱敏及推荐算法。
+Windows GUI 和真实网络仍需实机验证。测试结果以实际执行为准。
